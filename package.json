@@ -1,0 +1,32 @@
+{
+  "name": "electron-tab-containers",
+  "version": "1.0.0",
+  "description": "Electron 多标签页多容器",
+  "license": "MIT",
+  "private": true,
+  "main": "dist/main.js",
+  "author": {
+    "name": "zhhshen",
+    "url": "https://github.com",
+    "email": "zshen049@gmail.com"
+  },
+  "scripts": {
+    "render:dev": "vite -c render/vite.config.ts --host",
+    "render:build": "vite build -c render/vite.config.ts",
+    "desktop:build": "tsc -p tsconfig.json && tsc-alias -p tsconfig.json",
+    "desktop:build:watch": "concurrently 'tsc-watch -p tsconfig.json --noClear --onSuccess \"electron .\"' 'tsc-alias -w'",
+    "dev": "concurrently 'yarn desktop:build:watch' 'yarn render:dev'",
+    "build": "yarn desktop:build && yarn render:build",
+    "release": "yarn build && electron-builder"
+  },
+  "devDependencies": {
+    "@types/node": "^20.8.10",
+    "concurrently": "^8.2.2",
+    "electron": "^28.2.1",
+    "electron-builder": "^24.6.4",
+    "tsc-alias": "^1.8.8",
+    "tsc-watch": "^6.0.4",
+    "typescript": "^5.2.2",
+    "vite": "^4.5.0"
+  }
+}

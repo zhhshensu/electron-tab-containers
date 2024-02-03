@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>页面异常</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --bg-color: #f5f5f5;
+        --text-color: #333;
+        --primary-color: #007bff;
+        --secondary-color: #6c757d;
+        --success-color: #28a745;
+        --info-color: #17a2b8;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+        --light-color: #f8f9fa;
+      }
+
+      .bg-white {
+        background-color: #fff;
+      }
+
+      .h-screen {
+        height: 100vh;
+      }
+
+      .flex {
+        display: flex;
+      }
+
+      .items-center {
+        align-items: center;
+      }
+
+      .justify-center {
+        justify-content: center;
+      }
+      .flex-col {
+        flex-direction: column;
+      }
+      /* Add your custom styles here */
+      button {
+        cursor: pointer;
+      }
+      .error-bg {
+        width: 25vh;
+        height: 0;
+        padding-top: 100%;
+        background-image: url("../assets/pageCatch.jpg");
+        background-repeat: no-repeat;
+        background-size: 100% auto;
+      }
+      .reload-button {
+        background-color: #9333ea; /* 背景颜色 */
+        color: #ffffff; /* 文字颜色 */
+        padding: 0.5rem 1rem; /* 内边距 */
+        border-radius: 0.375rem; /* 圆角 */
+        font-weight: 600; /* 字体粗细 */
+        font-size: 1rem; /* 字体大小 */
+        cursor: pointer; /* 鼠标样式 */
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* 阴影效果 */
+        transition: background-color 0.3s ease-in-out;
+      }
+
+      .reload-button:hover {
+        background-color: #7f28e6;
+      }
+
+      .reload-button:active {
+        background-color: #6519b3;
+      }
+
+      .reload-button:focus {
+        border: 2px solid #9333ea;
+        outline: none;
+      }
+    </style>
+  </head>
+  <body class="bg-white h-screen flex items-center justify-center">
+    <div class="flex flex-col items-center justify-center">
+      <div class="error-bg"></div>
+      <button id="reloadButton" class="reload-button">
+        重新加载
+      </button>
+    </div>
+    <script type="module" src="./index.ts"></script>
+  </body>
+</html>
