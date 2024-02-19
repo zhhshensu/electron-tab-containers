@@ -1,14 +1,8 @@
 # electron-tab-containers
 
-基于[electron-tab-containers仓库](https://github.com/yuanxiao-mmc/electron-tab-containers)，实现多标签页的。
+基于BrowserView，实现多标签页的。
 
-## 效果图
-
-![Alt text](image.png)
-
-![Alt text](image-1.png)
-
-## Feature
+## Feature 
 
 ### 优化tab页签
 
@@ -22,6 +16,12 @@
 - 增加错误页面，添加重新加载功能
 
 #### 增加electron-builder打包配置
+
+## 效果图
+
+![Alt text](image.png)
+
+![Alt text](image-1.png)
 
 
 ## 启动项目
