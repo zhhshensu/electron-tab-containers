@@ -1,6 +1,6 @@
 import { BrowserWindow, WebContents } from "electron";
 import path from "path";
-import { app } from "electron/main";
+import { app } from "electron";
 import { DEV_SERVER_URL } from "./const";
 import { YWindowManager } from "@/window";
 import YContainerManager from "@/container";

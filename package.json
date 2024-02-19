@@ -15,6 +15,10 @@
     "render:build": "vite build -c render/vite.config.ts",
     "desktop:build": "tsc -p tsconfig.json && tsc-alias -p tsconfig.json",
     "desktop:build:watch": "concurrently 'tsc-watch -p tsconfig.json --noClear --onSuccess \"electron .\"' 'tsc-alias -w'",
+    "watch2": "tsup --onSuccess 'electron .'",
+    "watch3": "concurrently 'tsup --onSuccess \"electron .\"' 'tsc-alias -w'",
+    "dev2": "concurrently 'yarn watch2' 'yarn render:dev'",
+    "dev3": "concurrently 'yarn watch3' 'yarn render:dev'",
     "dev": "concurrently 'yarn desktop:build:watch' 'yarn render:dev'",
     "build": "yarn desktop:build && yarn render:build",
     "release": "yarn build && electron-builder"
@@ -26,6 +30,7 @@
     "electron-builder": "^24.6.4",
     "tsc-alias": "^1.8.8",
     "tsc-watch": "^6.0.4",
+    "tsup": "^8.0.1",
     "typescript": "^5.2.2",
     "vite": "^4.5.0"
   }

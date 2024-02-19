@@ -5,7 +5,7 @@ import {
   startDevToolsIfNeed,
 } from "@/helpers/web";
 import TabPageContainer from "@/pages/TabPageContainer";
-import { BrowserView } from 'electron/main';
+import { BrowserView } from 'electron';
 
 export interface YWindowOptions extends BrowserWindowConstructorOptions {
   /**
