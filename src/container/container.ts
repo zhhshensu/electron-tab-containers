@@ -34,7 +34,7 @@ export class YWebContainer {
    */
   public readonly id: number;
   /**
-   * 封装的视图，可以是view或者window
+   * 封装的视图
    */
   public readonly context: BrowserView;
   /**

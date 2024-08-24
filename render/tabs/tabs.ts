@@ -1,182 +1,231 @@
+import Sortable from "sortablejs";
 // @ts-ignore
-import styles from './style.css?inline'
+import styles from "./style.css?inline";
 
 if (!document) {
-  throw Error('electron-tabs module must be called in renderer process')
+  throw Error("electron-tabs module must be called in renderer process");
 }
 
 interface TabGroupOptions {
-  closeButtonText: string
-  defaultTab: TabOptions | ((tabGroup: TabGroup) => TabOptions)
-  newTabButton: boolean
-  newTabButtonText: string
-  visibilityThreshold: number
+  closeButtonText: string;
+  defaultTab: TabOptions | ((tabGroup: TabGroup) => TabOptions);
+  newTabButton: boolean;
+  newTabButtonText: string;
+  visibilityThreshold: number;
+  sortable: boolean;
+  sortableOptions?: Sortable.Options;
 }
 
 interface TabOptions {
-  active?: boolean
-  badge?: Badge
-  closable?: boolean
-  icon?: string
-  iconURL?: string
-  ready?: (tab: Tab) => void
-  containerId?: number
-  title?: string
-  visible?: boolean
-  webviewAttributes?: { [key: string]: any }
+  active?: boolean;
+  badge?: Badge;
+  closable?: boolean;
+  icon?: string;
+  iconURL?: string;
+  ready?: (tab: Tab) => void;
+  containerId?: number;
+  title?: string;
+  visible?: boolean;
+  webviewAttributes?: { [key: string]: any };
 }
 
 interface Badge {
-  text: string
-  className: string
+  text: string;
+  className: string;
 }
 
 const CLASSNAMES = {
-  ROOT: 'etabs',
-  NAV: 'nav',
-  TABS: 'tabs',
-  TAB: 'tab',
-  TAB_CONTENT: 'tab-content',
-  BUTTONS: 'buttons',
-  VIEWS: 'views',
-  VIEW: 'view',
-}
+  ROOT: "etabs",
+  NAV: "nav",
+  TABS: "tabs",
+  TAB: "tab",
+  TAB_CONTENT: "tab-content",
+  BUTTONS: "buttons",
+  VIEWS: "views",
+  VIEW: "view",
+};
 
 function emit(emitter: TabGroup | Tab, type: string, args: any[]) {
-  if (type === 'ready') {
-    emitter.isReady = true
+  if (type === "ready") {
+    emitter.isReady = true;
   }
-  emitter.dispatchEvent(new CustomEvent(type, { detail: args }))
+  emitter.dispatchEvent(new CustomEvent(type, { detail: args }));
 }
 
-function on(emitter: TabGroup | Tab, type: string, fn: (detail: string) => void, options?: { [key: string]: any }) {
-  if (type === 'ready' && emitter.isReady === true) {
-    fn.apply(emitter, [emitter as any])
+function on(
+  emitter: TabGroup | Tab,
+  type: string,
+  fn: (detail: string) => void,
+  options?: { [key: string]: any }
+) {
+  if (type === "ready" && emitter.isReady === true) {
+    fn.apply(emitter, [emitter as any]);
   }
-  emitter.addEventListener(type, ((e: CustomEvent) => fn.apply(emitter, e.detail)) as EventListener, options)
+  emitter.addEventListener(
+    type,
+    ((e: CustomEvent) => fn.apply(emitter, e.detail)) as EventListener,
+    options
+  );
 }
 
 class TabGroup extends HTMLElement {
-  buttonContainer?: HTMLDivElement
-  isReady: boolean
-  newTabId: number
-  options: TabGroupOptions
-  shadow?: ShadowRoot
-  tabContainer?: HTMLDivElement
-  tabs: Array<Tab>
+  buttonContainer?: HTMLDivElement;
+  isReady: boolean;
+  newTabId: number;
+  options: TabGroupOptions;
+  shadow?: ShadowRoot;
+  tabContainer?: HTMLDivElement;
+  tabs: Array<Tab>;
+  sortableIntance: Sortable;
 
-  private _tabGroupMargin: number = 0
-  private _tabGroupWidth: number = 0
+  private _tabGroupMargin: number = 0;
+  private _tabGroupWidth: number = 0;
 
   constructor() {
-    super()
+    super();
 
-    this.isReady = false
+    this.isReady = false;
     // Options
     this.options = {
-      closeButtonText: this.getAttribute('close-button-text') || '&#215;',
-      defaultTab: { title: 'New Tab', active: true },
-      newTabButton: !!this.getAttribute('new-tab-button') === true || false,
-      newTabButtonText: this.getAttribute('new-tab-button-text') || '&#65291;',
-      visibilityThreshold: Number(this.getAttribute('visibility-threshold')) || 0,
+      closeButtonText: this.getAttribute("close-button-text") || "&#215;",
+      defaultTab: { title: "New Tab", active: true },
+      newTabButton: !!this.getAttribute("new-tab-button") === true || false,
+      newTabButtonText: this.getAttribute("new-tab-button-text") || "&#65291;",
+      visibilityThreshold: Number(this.getAttribute("visibility-threshold")) || 0,
+      sortable: !!this.getAttribute("sortable") === true || false,
+    };
+
+    this.tabs = [];
+    this.newTabId = 0;
+
+    this.createComponent();
+    this.initVisibility();
+    if (this.options.sortable) {
+      this.initSortable();
     }
-
-    this.tabs = []
-    this.newTabId = 0
-
-    this.createComponent()
-    this.initVisibility()
-    this.emit('ready', this)
+    this.emit("ready", this);
   }
 
   emit(type: string, ...args: any[]) {
-    return emit(this, type, args)
+    return emit(this, type, args);
   }
 
   on(type: string, fn: (...detail: any[]) => void) {
-    return on(this, type, fn)
+    return on(this, type, fn);
   }
 
   once(type: string, fn: (detail: string) => void) {
-    return on(this, type, fn, { once: true })
+    return on(this, type, fn, { once: true });
   }
 
   connectedCallback() {
     // Support custom styles
-    const style = this.querySelector('style')
+    const style = this.querySelector("style");
     if (style) {
-      this.shadow?.appendChild(style)
+      this.shadow?.appendChild(style);
     }
   }
 
   private createComponent() {
-    const shadow = this.attachShadow({ mode: 'open' })
-    this.shadow = shadow
+    const shadow = this.attachShadow({ mode: "open" });
+    this.shadow = shadow;
 
-    const wrapper = document.createElement('div')
-    wrapper.setAttribute('class', CLASSNAMES.ROOT)
+    const wrapper = document.createElement("div");
+    wrapper.setAttribute("class", CLASSNAMES.ROOT);
 
-    const tabGroup = document.createElement('nav')
-    tabGroup.setAttribute('class', CLASSNAMES.NAV)
-    wrapper.appendChild(tabGroup)
+    const tabGroup = document.createElement("nav");
+    tabGroup.setAttribute("class", CLASSNAMES.NAV);
+    wrapper.appendChild(tabGroup);
 
-    const tabContainer = document.createElement('div')
-    tabContainer.setAttribute('class', CLASSNAMES.TABS)
-    tabGroup.appendChild(tabContainer)
-    this.tabContainer = tabContainer
+    const tabContainer = document.createElement("div");
+    tabContainer.setAttribute("class", CLASSNAMES.TABS);
+    tabGroup.appendChild(tabContainer);
+    this.tabContainer = tabContainer;
 
-    const buttonContainer = document.createElement('div')
-    buttonContainer.setAttribute('class', CLASSNAMES.BUTTONS)
-    tabGroup.appendChild(buttonContainer)
-    this.buttonContainer = buttonContainer
+    const buttonContainer = document.createElement("div");
+    buttonContainer.setAttribute("class", CLASSNAMES.BUTTONS);
+    tabGroup.appendChild(buttonContainer);
+    this.buttonContainer = buttonContainer;
 
     if (this.options.newTabButton) {
-      const button = this.buttonContainer.appendChild(document.createElement('button'))
-      button.innerHTML = this.options.newTabButtonText
-      button.addEventListener('click', () => {
-        this.emit('click-add-button')
-      })
+      const button = this.buttonContainer.appendChild(document.createElement("button"));
+      button.innerHTML = this.options.newTabButtonText;
+      button.addEventListener("click", () => {
+        this.emit("click-add-button");
+      });
     }
 
-    const style = document.createElement('style')
-    style.textContent = styles
+    const style = document.createElement("style");
+    style.textContent = styles;
 
-    shadow.appendChild(style)
-    shadow.appendChild(wrapper)
+    shadow.appendChild(style);
+    shadow.appendChild(wrapper);
   }
 
   private initVisibility() {
     function toggleTabsVisibility(_tab?: Tab, tabGroup?: TabGroup) {
-      const visibilityThreshold = tabGroup!.options.visibilityThreshold
-      const el = tabGroup?.tabContainer?.parentElement
+      const visibilityThreshold = tabGroup!.options.visibilityThreshold;
+      const el = tabGroup?.tabContainer?.parentElement;
       if (tabGroup!.tabs.length >= visibilityThreshold) {
-        el?.classList.add('visible')
+        el?.classList.add("visible");
       } else {
-        el?.classList.remove('visible')
+        el?.classList.remove("visible");
       }
     }
-    this.on('tab-added', toggleTabsVisibility)
-    this.on('tab-removed', toggleTabsVisibility)
-    toggleTabsVisibility(undefined, this)
+    this.on("tab-added", toggleTabsVisibility);
+    this.on("tab-removed", toggleTabsVisibility);
+    toggleTabsVisibility(undefined, this);
+  }
+
+  initSortable() {
+    const createNewSortable = () => {
+      const options = Object.assign(
+        {
+          group: {
+            name: "tab-group",
+            put: true,
+          },
+          direction: "horizontal",
+          animation: 150,
+          swapThreshold: 0.2,
+        },
+        this.options.sortableOptions
+      );
+      this.sortableIntance = new Sortable(this.tabContainer, options);
+      // Sortable.create("out-tab-group", {
+      //   group: {
+      //     name: "out-tab-group",
+      //     put: ['tab-group'],
+      //   },
+      //   animation: 100,
+      // });
+    };
+
+    if (Sortable) {
+      createNewSortable();
+    } else {
+      document.addEventListener("DOMContentLoaded", createNewSortable);
+    }
   }
 
   private updateTabGroupWidth() {
-    const bodyWidth: number = document.body.getBoundingClientRect().width
-    this._tabGroupWidth = bodyWidth - this._tabGroupMargin > 0 ? bodyWidth - this._tabGroupMargin : 0
+    const bodyWidth: number = document.body.getBoundingClientRect().width;
+    this._tabGroupWidth =
+      bodyWidth - this._tabGroupMargin > 0 ? bodyWidth - this._tabGroupMargin : 0;
   }
 
   // tab information configuration
   private updateTabWidth() {
-    const numTabs = this.tabs.length
+    const numTabs = this.tabs.length;
     // 计算总宽度
-    const totalWidth = numTabs * 180 + 8 * (numTabs - 1) // 总宽度
+    const totalWidth = numTabs * 180 + 8 * (numTabs - 1); // 总宽度
     // 判断是否需要自适应宽度
-    const isAutoWidth = totalWidth > this._tabGroupWidth
-    let tabWidth = isAutoWidth ? (this._tabGroupWidth - 8 * (numTabs + 1)) / numTabs : 180
-    let showScrollButtons = false
+    const isAutoWidth = totalWidth > this._tabGroupWidth;
+    let tabWidth = isAutoWidth ? (this._tabGroupWidth - 8 * (numTabs + 1)) / numTabs : 180;
+    let showScrollButtons = false;
     if (tabWidth < 94) {
-      tabWidth = 94
-      showScrollButtons = true
+      tabWidth = 94;
+      showScrollButtons = true;
     }
     // this.tabs.forEach((tab) => {
     //   if (tab.element) {
@@ -184,363 +233,363 @@ class TabGroup extends HTMLElement {
     //   }
     // })
     // 滚到最后
-    this.scrollTo({ left: totalWidth, behavior: 'smooth' })
+    this.scrollTo({ left: totalWidth, behavior: "smooth" });
     // 标签切换按钮
-    this.emit('scroll-button-hidden:update', !showScrollButtons)
+    this.emit("scroll-button-hidden:update", !showScrollButtons);
   }
 
   set tabGroupMargin(value: number) {
-    this._tabGroupMargin = value
-    this.updateTabGroupWidth()
+    this._tabGroupMargin = value;
+    this.updateTabGroupWidth();
   }
 
   setDefaultTab(tab: TabOptions) {
-    this.options.defaultTab = tab
+    this.options.defaultTab = tab;
   }
 
   addTab(args = this.options.defaultTab) {
-    if (typeof args === 'function') {
-      args = args(this)
+    if (typeof args === "function") {
+      args = args(this);
     }
-    const id = this.newTabId
-    this.newTabId++
-    const tab = new Tab(this, id, args)
-    this.tabs.push(tab)
+    const id = this.newTabId;
+    this.newTabId++;
+    const tab = new Tab(this, id, args);
+    this.tabs.push(tab);
     // Don't call tab.activate() before a tab is referenced in this.tabs
     if (args.active === true) {
-      tab.activate()
+      tab.activate();
     }
-    this.emit('tab-added', tab, this)
-    this.updateTabWidth()
-    return tab
+    this.emit("tab-added", tab, this);
+    this.updateTabWidth();
+    return tab;
   }
 
   getTab(id: number) {
     for (const i in this.tabs) {
       if (this.tabs[i].id === id) {
-        return this.tabs[i]
+        return this.tabs[i];
       }
     }
-    return null
+    return null;
   }
 
   getTabByPosition(position: number) {
-    const fromRight = position < 0
+    const fromRight = position < 0;
     for (const i in this.tabs) {
       if (this.tabs[i].getPosition(fromRight) === position) {
-        return this.tabs[i]
+        return this.tabs[i];
       }
     }
-    return null
+    return null;
   }
 
   getTabByRelPosition(position: number) {
-    position = this.getActiveTab()!.getPosition() + position
+    position = this.getActiveTab()!.getPosition() + position;
     if (position <= 0) {
-      return null
+      return null;
     }
-    return this.getTabByPosition(position)
+    return this.getTabByPosition(position);
   }
 
   getNextTab() {
-    return this.getTabByRelPosition(1)
+    return this.getTabByRelPosition(1);
   }
 
   getPreviousTab() {
-    return this.getTabByRelPosition(-1)
+    return this.getTabByRelPosition(-1);
   }
 
   getTabs() {
-    return this.tabs.slice()
+    return this.tabs.slice();
   }
 
   eachTab(fn: (tab: Tab) => void) {
-    this.getTabs().forEach(fn)
+    this.getTabs().forEach(fn);
   }
 
   getActiveTab() {
-    if (this.tabs.length === 0) return null
-    return this.tabs[0]
+    if (this.tabs.length === 0) return null;
+    return this.tabs[0];
   }
 
   setActiveTab(tab: Tab) {
-    this.removeTab(tab, { updateLayout: false })
-    this.tabs.unshift(tab)
-    this.emit('tab-active', tab, this)
+    this.removeTab(tab, { updateLayout: false });
+    this.tabs.unshift(tab);
+    this.emit("tab-active", tab, this);
   }
 
   removeTab(tab: Tab, options?: { triggerEvent?: boolean; updateLayout?: boolean }) {
-    const { triggerEvent = false, updateLayout = true } = options || {}
-    const id = tab.id
-    const index = this.tabs.findIndex((t: Tab) => t.id === id)
-    this.tabs.splice(index, 1)
+    const { triggerEvent = false, updateLayout = true } = options || {};
+    const id = tab.id;
+    const index = this.tabs.findIndex((t: Tab) => t.id === id);
+    this.tabs.splice(index, 1);
     if (triggerEvent) {
-      this.emit('tab-removed', tab, this)
+      this.emit("tab-removed", tab, this);
     }
     if (updateLayout) {
-      this.updateTabWidth()
+      this.updateTabWidth();
     }
   }
 
   activateRecentTab() {
     if (this.tabs.length > 0) {
-      this.tabs[0].activate()
+      this.tabs[0].activate();
     }
   }
 
   refreshTabsLayout() {
-    this.updateTabGroupWidth()
-    this.updateTabWidth()
+    this.updateTabGroupWidth();
+    this.updateTabWidth();
   }
 }
 class Tab extends EventTarget {
-  badge?: Badge
-  closable: boolean
-  element?: HTMLDivElement
-  icon?: string
-  iconURL?: string
-  id: number
-  isClosed: boolean
-  isReady: boolean
-  spans: { [key: string]: HTMLSpanElement }
-  tabGroup: TabGroup
-  title?: string
-  containerId?: number
+  badge?: Badge;
+  closable: boolean;
+  element?: HTMLDivElement;
+  icon?: string;
+  iconURL?: string;
+  id: number;
+  isClosed: boolean;
+  isReady: boolean;
+  spans: { [key: string]: HTMLSpanElement };
+  tabGroup: TabGroup;
+  title?: string;
+  containerId?: number;
 
   constructor(tabGroup: TabGroup, id: number, args: TabOptions) {
-    super()
-    this.badge = args.badge
-    this.closable = args.closable === false ? false : true
-    this.icon = args.icon
-    this.iconURL = args.iconURL
-    this.id = id
-    this.isClosed = false
-    this.isReady = false
-    this.spans = {}
-    this.tabGroup = tabGroup
-    this.title = args.title
-    this.containerId = args.containerId
+    super();
+    this.badge = args.badge;
+    this.closable = args.closable === false ? false : true;
+    this.icon = args.icon;
+    this.iconURL = args.iconURL;
+    this.id = id;
+    this.isClosed = false;
+    this.isReady = false;
+    this.spans = {};
+    this.tabGroup = tabGroup;
+    this.title = args.title;
+    this.containerId = args.containerId;
 
-    this.initTab()
+    this.initTab();
 
     if (args.visible !== false) {
-      this.show()
+      this.show();
     }
-    if (typeof args.ready === 'function') {
-      args.ready(this)
+    if (typeof args.ready === "function") {
+      args.ready(this);
     } else {
-      this.emit('ready', this)
+      this.emit("ready", this);
     }
   }
 
   emit(type: string, ...args: any[]) {
-    return emit(this, type, args)
+    return emit(this, type, args);
   }
 
   on(type: string, fn: (...detail: any[]) => void) {
-    return on(this, type, fn)
+    return on(this, type, fn);
   }
 
   once(type: string, fn: (detail: string) => void) {
-    return on(this, type, fn, { once: true })
+    return on(this, type, fn, { once: true });
   }
 
   private initTab() {
-    const tab = (this.element = document.createElement('div'))
-    tab.classList.add(CLASSNAMES.TAB)
+    const tab = (this.element = document.createElement("div"));
+    tab.classList.add(CLASSNAMES.TAB);
     // const tab = outTab.appendChild(document.createElement('div'))
     // tab.classList.add(CLASSNAMES.TAB_CONTENT)
 
-    for (const el of ['icon', 'title', 'badge', 'close']) {
-      const span = tab.appendChild(document.createElement('span'))
-      span.classList.add(`${CLASSNAMES.TAB}-${el}`)
-      if (el === 'icon') {
-        span.classList.add('loading')
-        const loading = span.appendChild(document.createElement('span'))
-        loading.classList.add('tab-icon-loading')
+    for (const el of ["icon", "title", "badge", "close"]) {
+      const span = tab.appendChild(document.createElement("span"));
+      span.classList.add(`${CLASSNAMES.TAB}-${el}`);
+      if (el === "icon") {
+        span.classList.add("loading");
+        const loading = span.appendChild(document.createElement("span"));
+        loading.classList.add("tab-icon-loading");
       }
-      this.spans[el] = span
+      this.spans[el] = span;
     }
-    this.setTitle(this.title || '')
-    this.setBadge(this.badge)
-    this.setIcon(this.iconURL || '', this.icon || '')
-    this.initTabCloseButton()
-    this.initTabClickHandler()
-    this.tabGroup?.tabContainer?.appendChild(this.element)
+    this.setTitle(this.title || "");
+    this.setBadge(this.badge);
+    this.setIcon(this.iconURL || "", this.icon || "");
+    this.initTabCloseButton();
+    this.initTabClickHandler();
+    this.tabGroup?.tabContainer?.appendChild(this.element);
   }
 
   private initTabCloseButton() {
-    const container = this.spans.close
+    const container = this.spans.close;
     if (this.closable) {
-      const button = container.appendChild(document.createElement('button'))
-      button.innerHTML = this.tabGroup.options.closeButtonText
-      button.addEventListener('click', this.close.bind(this, false, false), false)
+      const button = container.appendChild(document.createElement("button"));
+      button.innerHTML = this.tabGroup.options.closeButtonText;
+      button.addEventListener("click", this.close.bind(this, false, false), false);
     }
   }
 
   private initTabClickHandler() {
     // Mouse up
     const tabClickHandler = (_: any) => {
-      if (this.isClosed) return
-    }
-    this.element?.addEventListener('mouseup', tabClickHandler.bind(this), false)
+      if (this.isClosed) return;
+    };
+    this.element?.addEventListener("mouseup", tabClickHandler.bind(this), false);
     // Mouse down
     const tabMouseDownHandler = (e: any) => {
-      if (this.isClosed) return
+      if (this.isClosed) return;
       if (e.which === 1) {
-        if ((e.target as HTMLElement).matches('button')) return
-        this.activate()
+        if ((e.target as HTMLElement).matches("button")) return;
+        this.activate();
       }
-    }
-    this.element?.addEventListener('mousedown', tabMouseDownHandler.bind(this), false)
+    };
+    this.element?.addEventListener("mousedown", tabMouseDownHandler.bind(this), false);
   }
 
   setTitle(title: string) {
-    if (this.isClosed) return
-    const span = this.spans.title
-    span.innerHTML = title
-    span.title = title
-    this.title = title
-    this.emit('title-changed', title, this)
+    if (this.isClosed) return;
+    const span = this.spans.title;
+    span.innerHTML = title;
+    span.title = title;
+    this.title = title;
+    this.emit("title-changed", title, this);
     if (title && title.length > 0) {
       setTimeout(() => {
-        this.loadingCompleted()
-      }, 1000)
+        this.loadingCompleted();
+      }, 1000);
     }
-    return this
+    return this;
   }
 
   getTitle() {
-    if (this.isClosed) return
-    return this.title
+    if (this.isClosed) return;
+    return this.title;
   }
 
   setBadge(badge?: Badge) {
-    if (this.isClosed) return
-    const span = this.spans.badge
-    this.badge = badge
+    if (this.isClosed) return;
+    const span = this.spans.badge;
+    this.badge = badge;
 
     if (badge) {
-      span.innerHTML = badge.text
-      span.classList.add(badge.className)
-      span.classList.remove('hidden')
+      span.innerHTML = badge.text;
+      span.classList.add(badge.className);
+      span.classList.remove("hidden");
     } else {
-      span.classList.add('hidden')
+      span.classList.add("hidden");
     }
 
-    this.emit('badge-changed', badge, this)
+    this.emit("badge-changed", badge, this);
   }
 
   getBadge() {
-    if (this.isClosed) return
-    return this.badge
+    if (this.isClosed) return;
+    return this.badge;
   }
 
   setIcon(iconURL: string, icon: string) {
-    if (this.isClosed) return
-    this.iconURL = iconURL
-    this.icon = icon
-    const span = this.spans.icon
+    if (this.isClosed) return;
+    this.iconURL = iconURL;
+    this.icon = icon;
+    const span = this.spans.icon;
     if (iconURL) {
-      span.innerHTML = `<img src="${iconURL}" />`
-      span.classList.remove('background')
-      this.emit('icon-changed', iconURL, this)
+      span.innerHTML = `<img src="${iconURL}" />`;
+      span.classList.remove("background");
+      this.emit("icon-changed", iconURL, this);
     } else if (icon) {
-      span.innerHTML = `<i class="${icon}"></i>`
-      span.classList.remove('background')
-      this.emit('icon-changed', icon, this)
+      span.innerHTML = `<i class="${icon}"></i>`;
+      span.classList.remove("background");
+      this.emit("icon-changed", icon, this);
     } else {
-      span.classList.add('background')
+      span.classList.add("background");
     }
-    return this
+    return this;
   }
 
   getIcon() {
-    if (this.isClosed) return
-    if (this.iconURL) return this.iconURL
-    return this.icon
+    if (this.isClosed) return;
+    if (this.iconURL) return this.iconURL;
+    return this.icon;
   }
 
   getPosition(fromRight = false) {
-    let position = 0
-    let tab = this.element!
-    while ((tab = tab.previousSibling as HTMLDivElement) != null) position++
+    let position = 0;
+    let tab = this.element!;
+    while ((tab = tab.previousSibling as HTMLDivElement) != null) position++;
 
     if (fromRight === true) {
-      position -= this.tabGroup.tabContainer!.childElementCount
+      position -= this.tabGroup.tabContainer!.childElementCount;
     }
 
-    return position
+    return position;
   }
 
   activate() {
-    if (this.isClosed) return
-    const activeTab = this.tabGroup.getActiveTab()
+    if (this.isClosed) return;
+    const activeTab = this.tabGroup.getActiveTab();
     if (activeTab) {
-      activeTab.element?.classList.remove('active')
-      activeTab.emit('inactive', activeTab)
+      activeTab.element?.classList.remove("active");
+      activeTab.emit("inactive", activeTab);
     }
-    this.tabGroup.setActiveTab(this)
-    this.element?.classList.add('active')
-    this.emit('active', this)
-    return this
+    this.tabGroup.setActiveTab(this);
+    this.element?.classList.add("active");
+    this.emit("active", this);
+    return this;
   }
 
   get isActivated() {
-    return this.element?.classList.contains('active')
+    return this.element?.classList.contains("active");
   }
 
   show(flag = true) {
-    if (this.isClosed) return
+    if (this.isClosed) return;
     if (flag) {
-      this.element?.classList.add('visible')
-      this.emit('visible', this)
+      this.element?.classList.add("visible");
+      this.emit("visible", this);
     } else {
-      this.element?.classList.remove('visible')
-      this.emit('hidden', this)
+      this.element?.classList.remove("visible");
+      this.emit("hidden", this);
     }
-    return this
+    return this;
   }
 
   hide() {
-    return this.show(false)
+    return this.show(false);
   }
 
   hasClass(className: string) {
-    return this.element?.classList.contains(className)
+    return this.element?.classList.contains(className);
   }
 
   close(force: boolean, triggerEvent = true) {
-    const abortController = new AbortController()
-    const abort = () => abortController.abort()
+    const abortController = new AbortController();
+    const abort = () => abortController.abort();
     if (!force) {
-      this.emit('closing', this, abort)
+      this.emit("closing", this, abort);
     }
 
-    const abortSignal = abortController.signal
-    if (this.isClosed || (!this.closable && !force) || abortSignal.aborted) return
+    const abortSignal = abortController.signal;
+    if (this.isClosed || (!this.closable && !force) || abortSignal.aborted) return;
 
-    this.isClosed = true
-    const tabGroup = this.tabGroup
-    tabGroup.tabContainer?.removeChild(this.element!)
-    const activeTab = this.tabGroup.getActiveTab()
-    tabGroup.removeTab(this, { triggerEvent: triggerEvent })
+    this.isClosed = true;
+    const tabGroup = this.tabGroup;
+    tabGroup.tabContainer?.removeChild(this.element!);
+    const activeTab = this.tabGroup.getActiveTab();
+    tabGroup.removeTab(this, { triggerEvent: triggerEvent });
 
-    this.emit('close', this)
+    this.emit("close", this);
 
     if (activeTab?.id === this.id) {
-      tabGroup.activateRecentTab()
+      tabGroup.activateRecentTab();
     }
   }
 
   loadingCompleted() {
-    if (this.isClosed) return
-    const span = this.spans.icon
-    span.classList.remove('loading')
-    return this
+    if (this.isClosed) return;
+    const span = this.spans.icon;
+    span.classList.remove("loading");
+    return this;
   }
 }
 
-customElements.define('tab-group', TabGroup)
+customElements.define("tab-group", TabGroup);
 
-export type { TabGroup, Tab }
+export type { TabGroup, Tab };
